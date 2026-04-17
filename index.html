@@ -58,6 +58,20 @@ input::placeholder{color:var(--td)}
 .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
 .multi-bar{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);align-items:center;gap:10px;padding:10px 18px;background:var(--ink);border-radius:var(--r-sm);box-shadow:0 4px 24px rgba(0,0,0,.25);z-index:150;white-space:nowrap}
 .multi-bar.show{display:flex}
+/* Group name modal */
+.grp-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s;pointer-events:none}
+.grp-modal-overlay.show{opacity:1;pointer-events:all}
+.grp-modal{background:var(--card);border-radius:var(--r);padding:24px 28px;width:320px;box-shadow:0 12px 40px rgba(0,0,0,.25);transform:scale(.95);transition:transform .18s}
+.grp-modal-overlay.show .grp-modal{transform:scale(1)}
+.grp-modal-title{font-size:15px;font-weight:700;color:var(--t);margin-bottom:16px}
+.grp-modal-sub{font-size:12px;color:var(--tm);margin-bottom:12px}
+.grp-modal input{width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--r-sm);font-size:14px;font-family:var(--sans);color:var(--t);background:var(--surface);outline:none;transition:border-color .15s}
+.grp-modal input:focus{border-color:var(--blue);background:var(--card)}
+.grp-modal-btns{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.grp-modal-ok{background:var(--ink);color:#fff;border:none;padding:8px 20px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:background .15s}
+.grp-modal-ok:hover{background:#2d2d2d}
+.grp-modal-cancel{background:none;color:var(--tm);border:1px solid var(--border2);padding:8px 16px;border-radius:var(--r-sm);font-size:13px;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.grp-modal-cancel:hover{background:var(--surface2)}
 .multi-cnt{font-size:13px;font-weight:600;color:#fff;flex:1}
 /* Section cards */
 .sec-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .2s,box-shadow .2s,opacity .2s;margin-bottom:3px}
@@ -327,11 +341,24 @@ input::placeholder{color:var(--td)}
   <div class="lb-info" id="lb-info"></div>
 </div>
 <div id="toast" class="toast"></div>
+<!-- Group name modal -->
+<div class="grp-modal-overlay" id="grp-modal-overlay">
+  <div class="grp-modal">
+    <div class="grp-modal-title">그룹 만들기</div>
+    <div class="grp-modal-sub" id="grp-modal-sub">선택된 섹션들을 하나의 그룹으로 묶어요</div>
+    <input type="text" id="grp-modal-input" placeholder="그룹 이름 입력" maxlength="40">
+    <div class="grp-modal-btns">
+      <button class="grp-modal-cancel" onclick="closeGrpModal()">취소</button>
+      <button class="grp-modal-ok" onclick="confirmGrpModal()">만들기</button>
+    </div>
+  </div>
+</div>
 <div id="multi-bar" class="multi-bar">
   <span id="multi-cnt" class="multi-cnt">0개 선택됨</span>
   <button class="btn btn-sm" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;" onclick="groupSelectedCards()">그룹 만들기</button>
-  <button class="btn btn-sm" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;" onclick="deleteSelectedCards()">삭제</button>
   <button class="btn btn-sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.7);" onclick="clearCardSel()">선택 해제</button>
+  <span style="display:inline-block;width:18px;flex-shrink:0"></span>
+  <button class="btn btn-sm" style="background:#dc2626;border-color:#dc2626;color:#fff;" onclick="deleteSelectedCards()">삭제</button>
 </div>
 
 <script>
@@ -422,9 +449,6 @@ function lbShow(){const u=lbUrls[lbIdx];document.getElementById('lb-img').src=u;
 function lbClose(){document.getElementById('lb').classList.remove('show');document.body.style.overflow='';setTimeout(()=>{document.getElementById('lb-img').src='';},200);}
 function lbMove(dir,e){e.stopPropagation();lbIdx=(lbIdx+dir+lbUrls.length)%lbUrls.length;lbShow();}
 document.addEventListener('keydown',e=>{if(!document.getElementById('lb').classList.contains('show'))return;if(e.key==='ArrowRight'){lbIdx=(lbIdx+1)%lbUrls.length;lbShow();}else if(e.key==='ArrowLeft'){lbIdx=(lbIdx-1+lbUrls.length)%lbUrls.length;lbShow();}});
-
-// ── Image checker ──
-function checkImg(url){return new Promise(res=>{const img=new Image();const t=setTimeout(()=>res(false),7000);img.onload=()=>{clearTimeout(t);res(true);};img.onerror=()=>{clearTimeout(t);res(false);};img.src=url+'?_='+Date.now();});}
 
 // ── extractBase: strip ONLY the last trailing number (handles underscore variants) ──
 function extractBase(src){
@@ -740,8 +764,10 @@ function makeGroupCard(groupId,idxs){
   // group-level drag
   let _gDown=false;
   const gdh=wrap.querySelector('.drag-hg');
-  gdh.addEventListener('mousedown',()=>{_gDown=true;});
-  document.addEventListener('mouseup',()=>{_gDown=false;},{passive:true});
+  gdh.addEventListener('mousedown',()=>{
+    _gDown=true;
+    document.addEventListener('mouseup',()=>{_gDown=false;},{once:true,passive:true});
+  });
   wrap.draggable=true;
   wrap.addEventListener('dragstart',e=>{
     if(!_gDown){e.preventDefault();return;}
@@ -776,28 +802,55 @@ function ungroupSections(gid){
 }
 function deleteGroup(gid){
   if(!confirm(`"${groups[gid].name}" 그룹과 안의 섹션 ${sections.filter(s=>s.groupId===gid).length}개를 모두 삭제할까요?`))return;
-  pushUndo(`그룹 삭제: ${groups[gid].name}`);
-  sections=sections.filter(s=>s.groupId!==gid);
+  pushUndo(`그룹 삭제: ${groups[gid].name}`); // ✓ 변형 전 스냅샷 저장
+  const remaining=sections.filter(s=>s.groupId!==gid);
+  sections.splice(0,sections.length,...remaining);
   delete groups[gid];
   renderSections();toast('그룹 삭제됨');
 }
+let _grpModalCallback=null;
+function openGrpModal(sub,defaultVal,callback){
+  document.getElementById('grp-modal-sub').textContent=sub;
+  const inp=document.getElementById('grp-modal-input');
+  inp.value=defaultVal;
+  _grpModalCallback=callback;
+  document.getElementById('grp-modal-overlay').classList.add('show');
+  setTimeout(()=>{inp.focus();inp.select();},80);
+}
+function closeGrpModal(){
+  document.getElementById('grp-modal-overlay').classList.remove('show');
+  _grpModalCallback=null;
+}
+function confirmGrpModal(){
+  const name=document.getElementById('grp-modal-input').value.trim()||'새 그룹';
+  const cb=_grpModalCallback; // closeGrpModal 전에 저장
+  closeGrpModal();
+  if(cb)cb(name);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('grp-modal-overlay').classList.contains('show')){
+    e.preventDefault();confirmGrpModal();
+  }
+});
+
 function groupSelectedCards(){
   if(selCards.size<2){toast('2개 이상 선택해야 그룹을 만들 수 있어요');return;}
-  pushUndo(`그룹 만들기 (${selCards.size}개)`);
-  const gid=uid();
-  const name=prompt('그룹 이름을 입력하세요','새 그룹')||'새 그룹';
-  groups[gid]={name,commented:false};
-  // 선택된 섹션들을 연속 배치 후 groupId 부여
-  const idxs=[...selCards].sort((a,b)=>a-b);
-  const firstIdx=idxs[0];
-  const movedSecs=idxs.map(i=>sections[i]);
-  const rest=sections.filter((_,i)=>!selCards.has(i));
-  rest.splice(firstIdx,0,...movedSecs);
-  rest.forEach(s=>{if(movedSecs.includes(s))s.groupId=gid;});
-  sections=rest;
-  selCards.clear();
-  movedSecs.forEach(s=>animateSecIds.add(s.id));
-  renderSections();toast(`"${name}" 그룹 생성됨`);
+  const cnt=selCards.size;
+  openGrpModal(`${cnt}개 섹션을 하나의 그룹으로 묶어요`,'새 그룹',(name)=>{
+    pushUndo(`그룹 만들기 (${cnt}개)`);
+    const gid=uid();
+    groups[gid]={name,commented:false};
+    const idxs=[...selCards].sort((a,b)=>a-b);
+    const firstIdx=idxs[0];
+    const movedSecs=idxs.map(i=>sections[i]);
+    const rest=sections.filter((_,i)=>!selCards.has(i));
+    rest.splice(firstIdx,0,...movedSecs);
+    rest.forEach(s=>{if(movedSecs.includes(s))s.groupId=gid;});
+    sections.splice(0,sections.length,...rest);
+    selCards.clear();
+    movedSecs.forEach(s=>animateSecIds.add(s.id));
+    renderSections();toast(`"${name}" 그룹 생성됨`);
+  });
 }
 
 function makeCard(sec,i,inGroup=false){
@@ -807,6 +860,7 @@ function makeCard(sec,i,inGroup=false){
   const isOff=sec.commented;
   const isSel=selCards.has(i);
   wrap.className=`sec-card${isOff?' commented':''}${isSel?' sec-sel':''}`;
+  if(inGroup)wrap.style.cssText='margin-bottom:2px;border-radius:6px;border-left:3px solid var(--blue-b)';
   const name=secName(sec);
 
   let hdHtml='';
@@ -882,6 +936,33 @@ function makeCard(sec,i,inGroup=false){
   const divIn=wrap.querySelector('[data-div-in]');
 
   if(divIn){divIn.addEventListener('click',e=>e.stopPropagation());divIn.addEventListener('change',e=>{sections[i].label=e.target.value.trim();});}
+
+  // ── 모바일 길게 누르기 → 다중 선택 시작 / 선택 중 탭 → 토글 ──
+  let _lpTimer=null,_lpMoved=false,_lpFired=false;
+  hd.addEventListener('touchstart',e=>{
+    if([togB,delB,divIn].some(el=>el&&el.contains(e.target)))return;
+    // 이미 다중선택 상태면 탭만으로 토글
+    if(selCards.size>0){
+      selCards.has(i)?selCards.delete(i):selCards.add(i);
+      renderSections();return;
+    }
+    // 길게 누르기 시작
+    _lpMoved=false;_lpFired=false;
+    _lpTimer=setTimeout(()=>{
+      if(_lpMoved)return;
+      _lpFired=true;
+      if(navigator.vibrate)navigator.vibrate(40);
+      selCards.add(i);
+      renderSections();
+      toast('길게 눌러 선택 시작 · 다른 섹션을 탭해서 추가');
+    },500);
+  },{passive:true});
+  hd.addEventListener('touchmove',()=>{_lpMoved=true;clearTimeout(_lpTimer);},{passive:true});
+  hd.addEventListener('touchcancel',()=>{_lpMoved=true;clearTimeout(_lpTimer);_lpFired=false;},{passive:true});
+  hd.addEventListener('touchend',e=>{
+    clearTimeout(_lpTimer);
+    if(_lpFired)e.preventDefault(); // 길게 누르기 후 click 이벤트 차단
+  });
 
   hd.addEventListener('click',e=>{
     if([dh,togB,delB,divIn].some(el=>el&&el.contains(e.target)))return;
@@ -969,8 +1050,10 @@ function makeCard(sec,i,inGroup=false){
 
   // drag - mousedown on handle로 드래그 허용 여부 추적
   let _dhDown=false;
-  dh.addEventListener('mousedown',()=>{_dhDown=true;});
-  document.addEventListener('mouseup',()=>{_dhDown=false;},{once:false,passive:true});
+  dh.addEventListener('mousedown',()=>{
+    _dhDown=true;
+    document.addEventListener('mouseup',()=>{_dhDown=false;},{once:true,passive:true});
+  });
   wrap.draggable=true;
   wrap.addEventListener('dragstart',e=>{
     if(!_dhDown){e.preventDefault();return;}
@@ -1424,10 +1507,15 @@ function toggleSec(i){
   }
   toast(isNowCommented?'주석 처리됨':'활성화됨');
 }
-function deleteSec(i){if(!confirm(`"${secName(sections[i])}" 섹션을 삭제할까요?`))return;pushUndo('섹션 삭제');sections.splice(i,1);renderSections();}
+function cleanOrphanGroups(){
+  // 섹션이 하나도 없는 그룹을 groups에서 제거
+  const usedGids=new Set(sections.map(s=>s.groupId).filter(Boolean));
+  Object.keys(groups).forEach(gid=>{if(!usedGids.has(gid))delete groups[gid];});
+}
+function deleteSec(i){if(!confirm(`"${secName(sections[i])}" 섹션을 삭제할까요?`))return;pushUndo('섹션 삭제');sections.splice(i,1);cleanOrphanGroups();renderSections();}
 function deleteSelectedCards(){
   if(!selCards.size)return;if(!confirm(`${selCards.size}개 섹션을 삭제할까요?`))return;
-  pushUndo(`섹션 ${selCards.size}개 삭제`);const ids=[...selCards].sort((a,b)=>b-a);ids.forEach(i=>sections.splice(i,1));selCards.clear();renderSections();toast(`${ids.length}개 섹션 삭제됨`);
+  pushUndo(`섹션 ${selCards.size}개 삭제`);const ids=[...selCards].sort((a,b)=>b-a);ids.forEach(i=>sections.splice(i,1));selCards.clear();cleanOrphanGroups();renderSections();toast(`${ids.length}개 섹션 삭제됨`);
 }
 function clearCardSel(){selCards.clear();document.querySelectorAll('.sec-card.sec-sel').forEach(el=>el.classList.remove('sec-sel'));refreshMultiBar();}
 function refreshMultiBar(){const bar=document.getElementById('multi-bar');const cnt=selCards.size;if(cnt>0){bar.classList.add('show');document.getElementById('multi-cnt').textContent=`${cnt}개 선택됨`;}else bar.classList.remove('show');}
@@ -1502,8 +1590,9 @@ function generateFinal(){
       const g=groups[item.groupId];
       const secParts=item.idxs.map(i=>buildSecHtml(sections[i]).trim()).filter(p=>p!=='');
       if(g.commented){
-        // 그룹 전체를 하나의 주석으로
-        parts.push(`<!--\n${secParts.join('\n\n')}\n-->`);
+        // 그룹 전체를 하나의 주석으로 - 내부 --> 는 - -> 로 이스케이프 (중첩 주석 방지)
+        const inner=secParts.join('\n\n').replace(/-->/g,'- ->');
+        parts.push(`<!--\n${inner}\n-->`);
       } else {
         secParts.forEach(p=>parts.push(p));
       }
@@ -1515,9 +1604,11 @@ function generateFinal(){
   let html=parts.join('\n\n');
   if(footerRaw)html+='\n\n'+footerRaw;
   document.getElementById('out-html').value=html;
-  const on=sections.filter(s=>!s.commented&&s.type!=='cmt-text').length;
-  const off=sections.filter(s=>s.commented||s.type==='cmt-text').length;
-  const imgT=sections.reduce((s,sec)=>s+(sec.commented?0:(sec.images?.length||0)),0);
+  // 통계: 그룹 주석된 섹션도 off로 카운트
+  const isSecOff=(sec)=>sec.commented||sec.type==='cmt-text'||(sec.groupId&&groups[sec.groupId]?.commented);
+  const on=sections.filter(s=>!isSecOff(s)).length;
+  const off=sections.filter(s=>isSecOff(s)).length;
+  const imgT=sections.reduce((s,sec)=>s+(isSecOff(sec)?0:(sec.images?.length||0)),0);
   document.getElementById('out-meta').textContent=`활성 ${on}섹션 · 주석 ${off}섹션 · 이미지 ${imgT}장`;
   document.getElementById('out-wrap').style.display='';
   document.getElementById('copy-btn').textContent='클립보드에 복사';
@@ -1555,12 +1646,6 @@ function startNew(){
   document.getElementById('f-result').style.display='none';
   toast('새 페이지 편집을 시작합니다');
 }
-  document.getElementById('sections-wrap').style.display='';
-  document.getElementById('gen-wrap').style.display='';
-  document.getElementById('out-wrap').style.display='none';
-  document.getElementById('f-result').style.display='none';
-  toast('새 페이지 편집을 시작합니다');
-}
 
 // ── History panel ──
 function openHist(){
@@ -1588,7 +1673,7 @@ function renderHistList(){
       if(!h.snap){toast('이 항목은 롤백 데이터가 없어요');return;}
       if(!confirm(`"${h.label}" 시점으로 롤백할까요?\n이후 작업은 모두 사라집니다.`))return;
       sections=h.snap;
-      if(h.gsnap)groups=h.gsnap;
+      groups=h.gsnap||{}; // gsnap 없으면 빈 groups로 초기화 (불일치 방지)
       lastImgClick=null;selCards.clear();
       undoStack.length=0;refreshUndoHint();
       renderSections();
