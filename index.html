@@ -1374,8 +1374,8 @@ function makeAZ(insertIdx,groupId=null){
   div.querySelector('.fi-add').addEventListener('click',()=>{
     const date=fmtDate(fiDate.value);const code=div.querySelector('.fi-code').value.trim();const cmt=div.querySelector('.fi-cmt').value.trim();
     if(!date){toast('날짜를 입력해 주세요');fiDate.focus();return;}if(!code){toast('코드명을 입력해 주세요');return;}
-    const m=code.match(/^(.+?)_(\d+)$/);let imgs;
-    if(m){const b=m[1];const n=parseInt(m[2]);imgs=Array.from({length:n},(_,k)=>({src:`${getBase()}${date}/${b}_${k+1}.jpg`}));}
+    const m=code.match(/^(.+?)(_?)(\d+)$/);let imgs;
+    if(m){const b=m[1];const sep=m[2];const n=parseInt(m[3]);imgs=Array.from({length:n},(_,k)=>({src:`${getBase()}${date}/${b}${sep}${k+1}.jpg`}));}
     else imgs=[{src:`${getBase()}${date}/${code}.jpg`}];
     const name=m?m[1]:code;
     const newSec={id:uid(),type:'img-group',name,images:imgs,selected:new Set(),commented:false};
